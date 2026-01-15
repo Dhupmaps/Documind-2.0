@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuMind - Chat</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* Sidebar styles */
+        .sidebar {
+            width: 300px;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+            transition: width 0.3s ease, padding 0.3s ease, opacity 0.2s;
+            white-space: nowrap; 
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            padding-left: 0;
+            padding-right: 0;
+            border-right: none;
+            overflow: hidden;
+            opacity: 0;
+        }
+        
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .upload-area input[type="file"] {
+            display: none;
+        }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .message {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            word-wrap: break-word;
+        }
+        
+        .message.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.assistant {
+            align-self: flex-start;
+            background: #f0f0f0;
+            color: #333;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message p {
+            margin-bottom: 8px;
+        }
+        .message p:last-child {
+            margin-bottom: 0;
+        }
+        .message ul, .message ol {
+            margin-left: 20px;
+            margin-bottom: 8px;
+        }
+        .message strong {
+            font-weight: 700;
+        }
+        .message code {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .message.user code {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            background: white;
+        }
+        
+        .chat-input-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: none;
+            font-family: inherit;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .loading {
+            display: none;
+            color: #667eea;
+            font-style: italic;
+            padding: 10px;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            white-space: normal;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+        
+        .quiz-result {
+            background: #f8f9ff;
+            border: 1px solid #667eea;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        
+        .quiz-result pre {
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .quiz-question {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        
+        .quiz-answer {
+            background: #e8f5e8;
+            border-left: 4px solid #4caf50;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        
+        .status {
+            padding: 10px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #856404;
+            white-space: normal;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="display: flex; align-items: center;">
+            <button id="toggleSidebar" class="btn btn-secondary" style="margin-right: 15px; font-size: 18px;">◀</button>
+            <h1>DocuMind</h1>
+            <span style="margin-left:10px;color:#666;font-size:14px;">@{{ username }}</span>
+        </div>
+        
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="clearDocuments()">Clear Documents</button>
+            <button class="btn btn-secondary" onclick="window.location.href='/logout'">Logout</button>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="sidebar">
+            <h2>Upload Documents</h2>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" accept=".pdf,.txt">
+                <p>Click or drag & drop<br>PDF or TXT files here</p>
+            </div>
+            <div id="uploadStatus"></div>
+        </div>
+        
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <div class="status">
+                    Upload a document to start chatting. You can ask questions or request a quiz.
+                </div>
+            </div>
+            <div class="loading" id="loading">Thinking...</div>
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <textarea 
+                        id="chatInput" 
+                        class="chat-input" 
+                        rows="2" 
+                        placeholder="Ask a question....."
+                        onkeydown="handleKeyDown(event)"
+                    ></textarea>
+                    <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                    <button class="btn btn-primary" onclick="generateQuiz()">Generate Quiz</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const loading = document.getElementById('loading');
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+                if (data.messages && Array.isArray(data.messages)) {
+                    chatMessages.innerHTML = '';
+                    for (const m of data.messages) {
+                        addMessage(m.content, m.role);
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+        });
+        
+        // File upload handlers
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+        
+        function handleFileUpload(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            uploadStatus.innerHTML = '<div class="status">Uploading...</div>';
+            
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    uploadStatus.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                } else {
+                    uploadStatus.innerHTML = `<div class="status" style="background: #d4edda; border-color: #28a745; color: #155724;">${data.message}</div>`;
+                    const statusMsg = chatMessages.querySelector('.status');
+                    if (statusMsg) statusMsg.remove();
+                }
+            })
+            .catch(error => {
+                uploadStatus.innerHTML = `<div class="error">Upload failed: ${error.message}</div>`;
+            });
+        }
+        
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+        
+        // --- UPDATED STREAMING LOGIC ---
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+            
+            // Add user message
+            addMessage(message, 'user');
+            chatInput.value = '';
+            
+            // Create an empty assistant message bubble to stream text into
+            const botMessageDiv = addMessage('', 'assistant');
+            
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+
+                loading.style.display = 'none';
+
+                // Setup Stream Reader
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = "";
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value, { stream: true });
+                    // Split by newlines as we send newline-delimited JSON from backend
+                    const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+                    for (const line of lines) {
+                        try {
+                            const data = JSON.parse(line);
+                            if (data.error) {
+                                botMessageDiv.innerHTML += `<br><span class="error">Error: ${data.error}</span>`;
+                            } else if (data.token) {
+                                fullText += data.token;
+                                // Update content with Markdown parsing
+                                botMessageDiv.innerHTML = marked.parse(fullText);
+                                chatMessages.scrollTop = chatMessages.scrollHeight;
+                            }
+                        } catch (e) {
+                            console.error("Error parsing stream:", e);
+                        }
+                    }
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                botMessageDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        function generateQuiz() {
+            const numQuestions = prompt('Number of questions (1-20):', '5');
+            if (!numQuestions) return;
+            
+            loading.style.display = 'block';
+            addMessage('Generating quiz...', 'user');
+            
+            fetch('/api/generate-quiz', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ num_questions: parseInt(numQuestions) || 5 })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                if (data.error) {
+                    addMessage(`Error: ${data.error}`, 'assistant', true);
+                } else {
+                    displayQuiz(data.quiz);
+                }
+            })
+            .catch(error => {
+                loading.style.display = 'none';
+                addMessage(`Error: ${error.message}`, 'assistant', true);
+            });
+        }
+        
+        function displayQuiz(quiz) {
+            addMessage(`📚 ${quiz.title}`, 'assistant');
+            
+            if (quiz.questions && quiz.questions.length > 0) {
+                quiz.questions.forEach((question, index) => {
+                    addMessage(`**Q${index + 1}:** ${question.question}`, 'assistant', false, false, true);
+                    
+                    question.options.forEach((option, optIndex) => {
+                        addMessage(`- **${String.fromCharCode(65 + optIndex)}.** ${option}`, 'assistant');
+                    });
+                    
+                    setTimeout(() => {
+                        addMessage(`💡 **Answer:** ${String.fromCharCode(65 + question.correct_answer)} - ${question.explanation}`, 'assistant', false, false, false, true);
+                        if (index < quiz.questions.length - 1) {
+                            addMessage('---', 'assistant');
+                        }
+                    }, index * 100);
+                });
+            } else {
+                addMessage('No questions generated.', 'assistant');
+            }
+        }
+        
+        // --- UPDATED addMessage TO RETURN ELEMENT ---
+        function addMessage(text, type, isError = false, isQuiz = false, isQuestion = false, isAnswer = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            if (isQuiz) {
+                messageDiv.innerHTML = `<div class="quiz-result"><pre>${escapeHtml(text)}</pre></div>`;
+            } else if (isError) {
+                messageDiv.innerHTML = `<div class="error">${escapeHtml(text)}</div>`;
+            } else if (isQuestion) {
+                messageDiv.innerHTML = `<div class="quiz-question">${marked.parse(text)}</div>`;
+            } else if (isAnswer) {
+                messageDiv.innerHTML = `<div class="quiz-answer">${marked.parse(text)}</div>`;
+            } else {
+                if (type === 'user') {
+                    messageDiv.textContent = text;
+                } else {
+                    // Initialize empty or with text
+                    messageDiv.innerHTML = marked.parse(text);
+                }
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Return the DIV so sendMessage can update it while streaming
+            return messageDiv;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function clearDocuments() {
+            if (!confirm('Are you sure you want to clear all documents?')) return;
+            
+            fetch('/api/clear', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    chatMessages.innerHTML = '<div class="status">Documents cleared. Upload a new document to continue.</div>';
+                    uploadStatus.innerHTML = '';
+                }
+            })
+            .catch(error => {
+                alert('Error clearing documents: ' + error.message);
+            });
+        }
+
+        // Sidebar Toggle Logic
+        const toggleBtn = document.getElementById('toggleSidebar');
+        const sidebar = document.querySelector('.sidebar');
+
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                toggleBtn.textContent = '▶'; 
+            } else {
+                toggleBtn.textContent = '◀'; 
+            }
+        });
+    </script>
+</body>
+</html>
