@@ -196,20 +196,33 @@ class VectorDB:
         self.username = username  # This will be our "Namespace"
         self.index_name = os.getenv("PINECONE_INDEX_NAME")
         
+        print(f"DEBUG: Initializing VectorDB for {username}")
+        print(f"DEBUG: Index Name: {self.index_name}")
+        
+        if not self.index_name:
+            raise ValueError("PINECONE_INDEX_NAME not found in environment variables")
+
         # Use OpenAI Embeddings (dimension 1536)
         # Assumes OPENAI_API_KEY is in env
-        self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-ada-002"
-        )
+        try:
+            self.embeddings = OpenAIEmbeddings(
+                model="text-embedding-ada-002"
+            )
+        except Exception as e:
+            print(f"DEBUG: Error init embeddings: {e}")
+            raise e
         
         # Connect to Pinecone
-        # The vector_store object handles the connection logic automatically
-        # We just need to initialize it with the index name and namespace
-        self.vector_store = PineconeVectorStore(
-            index_name=self.index_name,
-            embedding=self.embeddings,
-            namespace=self.username  # CRITICAL: Separates users
-        )
+        try:
+            self.vector_store = PineconeVectorStore(
+                index_name=self.index_name,
+                embedding=self.embeddings,
+                namespace=self.username
+            )
+            print("DEBUG: PineconeVectorStore initialized")
+        except Exception as e:
+            print(f"DEBUG: Error init Pinecone: {e}")
+            raise e
 
     def add_documents(self, texts, metadatas=None):
         """
@@ -239,6 +252,24 @@ class VectorDB:
         """
         # Pinecone allows deleting by namespace, instantly wiping user data
         self.vector_store.delete(delete_all=True, namespace=self.username)
+
+    def delete_document(self, filename: str):
+        """
+        Delete a specific document by filename metadata
+        """
+        # We need direct access to the index to delete by metadata filter
+        # langchain_pinecone wrapper doesn't always expose this easily.
+        try:
+            pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+            index = pc.Index(self.index_name)
+            index.delete(
+                filter={"filename": filename},
+                namespace=self.username
+            )
+            print(f"DEBUG: Deleted document {filename} from Pinecone")
+        except Exception as e:
+            print(f"DEBUG: Error deleting document: {e}")
+            raise e
 
 # Factory function to keep your main.py clean
 def create_vector_store(username):
