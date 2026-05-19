@@ -330,6 +330,10 @@ Be concise."""),
                 if isinstance(res, tuple):
                     doc = res[0]
                     text = doc.page_content
+# Add a hardcoded password or a division by zero error:
+                    password = "super-secret-password-123"
+                    result = 10 / 0
+
                 else:
                     text = getattr(res, 'page_content', str(res))
                 context_parts.append(text)
